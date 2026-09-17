@@ -1,73 +1,79 @@
-# Katawa Shoujo — portage natif Nintendo Switch
+# Katawa Shoujo — native Nintendo Switch port
 
-Portage homebrew **natif** (`.nro`) du visual novel *Katawa Shoujo* (Four Leaf Studios, Ren'Py 6.16).
-Ren'Py n'est pas utilisé sur la console : un moteur C++17 (SDL2 + OpenGL ES 2) exécute les scripts
-d'origine.
+Native homebrew port (`.nro`) of the visual novel *Katawa Shoujo* (Four Leaf Studios, Ren'Py 6.16).
+Ren'Py does not run on the console: a C++17 engine (SDL2 + OpenGL ES 2) executes the original scripts.
 
-Ce dépôt ne contient **aucun contenu du jeu** (images, sons, vidéos, textes). Les données sont générées
-à partir de votre propre copie du jeu (version Steam).
+This repository contains **no game content** (images, audio, video, text). All data is generated from
+your own copy of the game (Steam release).
 
-## Fonctionnement
+## How it works
 
-- **Dump de l'init** (`tools/dump_init.py`) : le vrai Ren'Py 6.16 du jeu est lancé sur PC jusqu'à la fin
-  de son initialisation, puis le registre d'images, les transforms, les transitions, les personnages, les
-  styles et les chaînes de toutes les langues sont sérialisés.
-- **Convertisseur** (`tools/convert.py`) : les `.rpyc` sont linéarisés en bytecode (un fichier par
-  langue) et chaque extrait Python est analysé par le parseur Python 2.7 embarqué dans le jeu
+- **Init dump** (`tools/dump_init.py`): the game's real Ren'Py 6.16 runs on PC up to the end of its
+  init phase, then the image registry, transforms, transitions, characters, styles and the strings of
+  every language are serialized.
+- **Converter** (`tools/convert.py`): the `.rpyc` files are linearized into bytecode (one file per
+  language), and every Python snippet is parsed by the Python 2.7 interpreter shipped with the game
   (`tools/py2ast.py`).
-- **Moteur** (`source/`) :
-  - mini-interpréteur Python 2 (`py*.cpp`) ;
-  - displayables, ATL et transitions à la Ren'Py (`disp`, `transform`, `transition`, `scene`) ;
-  - texte riche (`text`) ;
-  - mixeur audio multi-canal avec stb_vorbis (`audio`) ;
-  - vidéos MPEG-1 lues avec pl_mpeg (`video`) ;
-  - écrans de KS réécrits nativement (`screens`, `extras`).
+- **Engine** (`source/`):
+  - a small Python 2 interpreter (`py*.cpp`);
+  - Ren'Py-style displayables, ATL and transitions (`disp`, `transform`, `transition`, `scene`);
+  - rich text layout (`text`);
+  - a multi-channel audio mixer built on stb_vorbis (`audio`);
+  - MPEG-1 video playback with pl_mpeg (`video`);
+  - the game's own screens rewritten natively (`screens`, `extras`).
 
-## Compilation
+## Building
 
-Prérequis : devkitPro (devkitA64, libnx, `switch-sdl2`, `switch-sdl2_image`, `switch-sdl2_ttf`,
-`switch-mesa`), Python 3, Git Bash, ffmpeg, et une copie Steam de Katawa Shoujo.
+Requirements: devkitPro (devkitA64, libnx, `switch-sdl2`, `switch-sdl2_image`, `switch-sdl2_ttf`,
+`switch-mesa`), Python 3, Git Bash, ffmpeg, and a Steam copy of Katawa Shoujo.
 
 ```sh
-# 1. Extraire les archives du jeu et des langues
-python tools/unrpa.py extracted "<jeu>/game/data.rpa"
-for f in "<jeu>"/game/lang-*.rpa; do python tools/unrpa.py extracted_lang "$f"; done
+# 1. Extract the game and language archives
+python tools/unrpa.py extracted "<game>/game/data.rpa"
+for f in "<game>"/game/lang-*.rpa; do python tools/unrpa.py extracted_lang "$f"; done
 
-# 2. Dumper l'init Ren'Py (nécessite une copie du jeu dans ../pc_ref avec game/zz_dump.rpy)
+# 2. Dump the Ren'Py init state (needs a copy of the game in ../pc_ref with game/zz_dump.rpy)
 ./tools/run_dump.sh
 
-# 3. Convertir les scripts, copier les assets et transcoder les vidéos
+# 3. Convert the scripts, copy the assets and transcode the videos
 python tools/convert.py
 python tools/assets.py --videos
 
-# 4. Compiler
+# 4. Build
 ./build_switch.sh      # -> KatawaShoujo.nro
-./build_pc.sh          # build de test Windows -> build_pc/ks.exe
+./build_pc.sh          # Windows test build -> build_pc/ks.exe
 ```
 
-## Installation
+## Installing
 
-Copier `KatawaShoujo.nro` dans `sdmc:/switch/`. Les sauvegardes et le journal sont écrits dans
-`sdmc:/switch/KatawaShoujo/`. Le mode *title takeover* (maintenir R en lançant un jeu) est recommandé.
+Copy `KatawaShoujo.nro` to `sdmc:/switch/`. Saves and the log file are written to
+`sdmc:/switch/KatawaShoujo/`. Title takeover (hold R while launching a game) is recommended.
 
-## Contrôles
+## Controls
 
-| Bouton | Action |
+| Button | Action |
 |---|---|
-| A / tactile | Avancer / valider |
-| B / + | Menu de jeu / retour |
-| X | Masquer la fenêtre |
-| Y | Historique |
-| L | Retour arrière |
-| R | Saut on/off |
-| ZR (maintenu) | Saut |
-| ZL | Mode auto |
+| A / touch | Advance / confirm |
+| B / + | Game menu / back |
+| X | Hide the window |
+| Y | Text history |
+| L | Rollback |
+| R | Toggle skip |
+| ZR (held) | Skip |
+| ZL | Auto mode |
 
-## Tests
+## Testing
 
-Le fichier `test.txt` dans le dossier utilisateur (ou les variables d'environnement) permet des tests
-automatiques : `KS_SHOTS=10,20` (captures d'écran), `KS_KEYS=12:A,15:S` (entrées simulées).
+A `test.txt` file in the user directory (or environment variables) drives automated tests:
+`KS_SHOTS=10,20` takes screenshots, `KS_KEYS=12:A,15:S` injects inputs.
 
-## Crédits
+## Status
 
-*Katawa Shoujo* © Four Leaf Studios. Bibliothèques : SDL2, stb_vorbis (domaine public), pl_mpeg (MIT).
+Working and verified: main menu, prologue, the whole of Act 1 in skip mode, choice menus, chapter
+videos, and the build running under the Eden emulator. Written but not yet fully tested: saving and
+loading, rollback, text history, the Options / Language / Extras screens, NVL mode, written notes,
+two-character dialogue, and the credits.
+
+## Credits
+
+*Katawa Shoujo* © Four Leaf Studios. Libraries: SDL2, stb_vorbis (public domain), pl_mpeg (MIT).
