@@ -1,0 +1,16 @@
+# Game content (never redistributed: generated from your own copy of the game)
+extracted/
+extracted_lang/
+extracted_list.txt
+decompiled/
+lang/
+romfs/
+build/
+
+# Build outputs
+build_nx/
+build_pc/
+*.nro
+*.elf
+*.nacp
+*.map
