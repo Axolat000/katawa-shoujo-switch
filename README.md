@@ -25,22 +25,24 @@ your own copy of the game (Steam release).
 ## Building
 
 Requirements: devkitPro (devkitA64, libnx, `switch-sdl2`, `switch-sdl2_image`, `switch-sdl2_ttf`,
-`switch-mesa`), Python 3, Git Bash, ffmpeg, and a Steam copy of Katawa Shoujo.
+`switch-mesa`), Python 3 with Pillow, bash (Linux, or Git Bash on Windows), ffmpeg, and a Steam copy of Katawa Shoujo.
 
 ```sh
 # 1. Extract the game and language archives
-python tools/unrpa.py extracted "<game>/game/data.rpa"
-for f in "<game>"/game/lang-*.rpa; do python tools/unrpa.py extracted_lang "$f"; done
+GAME="$(python tools/gamedir.py)"   # Steam install of the game (or set KS_GAME_ROOT)
+python tools/unrpa.py extracted "$GAME/game/data.rpa"
+for f in "$GAME"/game/lang-*.rpa; do python tools/unrpa.py extracted_lang "$f"; done
 
-# 2. Dump the Ren'Py init state (needs a copy of the game in ../pc_ref with game/zz_dump.rpy)
+# 2. Dump the Ren'Py init state (the Steam install is found automatically; set KS_GAME_ROOT to override)
 ./tools/run_dump.sh
 
-# 3. Convert the scripts, copy the assets and transcode the videos
+# 3. Convert the scripts, copy the assets, download the icon and transcode the videos
 python tools/convert.py
 python tools/assets.py --videos
 
 # 4. Build
 ./build_switch.sh      # -> KatawaShoujo.nro
+./build_switch.sh nsp  # -> KatawaShoujo.nsp (optional, see below)
 ./build_pc.sh          # Windows test build -> build_pc/ks.exe
 ```
 
@@ -48,6 +50,19 @@ python tools/assets.py --videos
 
 Copy `KatawaShoujo.nro` to `sdmc:/switch/`. Saves and the log file are written to
 `sdmc:/switch/KatawaShoujo/`. Title takeover (hold R while launching a game) is recommended.
+
+### NSP
+
+`make nsp` / `./build_switch.sh nsp` packs an installable NSP (title ID `01004B5300000000`) with
+its own Home Menu icon, running as a full application without title takeover. It needs:
+
+- [hacBrewPack](https://github.com/rlaphoenix/hacBrewPack) v3.05 on the `PATH` (or `HACBREWPACK=`);
+  the original repository was deleted, that mirror's `745b16e` is the original v3.05 commit;
+- `prod.keys` dumped from your own console: `~/.switch/prod.keys`, Eden's or yuzu's keys
+  directory, or `PROD_KEYS=/path/to/prod.keys`.
+
+The NSP is not officially signed: installing it needs custom firmware with sigpatches. Like the
+`.nro`, it contains the game's data, so do not distribute it.
 
 ## Controls
 
@@ -85,4 +100,5 @@ Third-party libraries and code retain their own licenses and copyright notices.
 
 ## Credits
 
-*Katawa Shoujo* © Four Leaf Studios. Libraries: SDL2, stb_vorbis (public domain), pl_mpeg (MIT).
+*Katawa Shoujo* © Four Leaf Studios (CC BY-NC-ND 3.0); the app icon, built from its key art, is
+downloaded from SteamGridDB at build time. Libraries: SDL2, stb_vorbis (public domain), pl_mpeg (MIT).

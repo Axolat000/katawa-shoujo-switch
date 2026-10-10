@@ -14,3 +14,11 @@ build_pc/
 *.elf
 *.nacp
 *.map
+
+# Python bytecode
+__pycache__/
+build_nsp/
+*.nsp
+
+# Downloaded by tools/assets.py
+icon.jpg

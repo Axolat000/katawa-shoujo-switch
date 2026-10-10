@@ -34,6 +34,21 @@ ICON		:=	icon.jpg
 APP_TITLE	:=	Katawa Shoujo
 APP_AUTHOR	:=	Four Leaf Studios (native port)
 APP_VERSION	:=	1.0
+APP_TITLEID	:=	01004B5300000000
+
+#---------------------------------------------------------------------------------
+# `make nsp`: installable NSP (needs hacBrewPack and the console's prod.keys).
+# The title ID above must match nsp/npdm.json.
+#---------------------------------------------------------------------------------
+NSP_BUILD	:=	build_nsp
+# The Home Menu loads the icon of the console's language: ship the same one for all of them
+NSP_ICON_LANGS	:=	AmericanEnglish BritishEnglish Japanese French German LatinAmericanSpanish \
+			Spanish Italian Dutch CanadianFrench Portuguese Russian Korean \
+			TraditionalChinese SimplifiedChinese BrazilianPortuguese
+HACBREWPACK	?=	hacbrewpack
+PROD_KEYS	?=	$(firstword $(wildcard $(HOME)/.switch/prod.keys \
+			$(HOME)/.local/share/eden/keys/prod.keys \
+			$(HOME)/.local/share/yuzu/keys/prod.keys))
 
 #---------------------------------------------------------------------------------
 # options for code generation
@@ -164,7 +179,7 @@ ifneq ($(ROMFS),)
 	export NROFLAGS += --romfsdir=$(CURDIR)/$(ROMFS)
 endif
 
-.PHONY: $(BUILD) clean all
+.PHONY: $(BUILD) clean all nsp
 
 #---------------------------------------------------------------------------------
 all: $(BUILD)
@@ -174,8 +189,24 @@ $(BUILD):
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
 
 #---------------------------------------------------------------------------------
+nsp: $(BUILD)
+	@[ -f "$(PROD_KEYS)" ] || { echo "error: prod.keys not found, pass PROD_KEYS=/path/to/prod.keys" >&2; exit 1; }
+	@rm -rf $(NSP_BUILD) && mkdir -p $(NSP_BUILD)/exefs $(NSP_BUILD)/control
+	@$(DEVKITPRO)/tools/bin/elf2nso $(TARGET).elf $(NSP_BUILD)/exefs/main
+	@$(DEVKITPRO)/tools/bin/npdmtool nsp/npdm.json $(NSP_BUILD)/exefs/main.npdm 2>/dev/null
+	@cp $(TARGET).nacp $(NSP_BUILD)/control/control.nacp
+	@for l in $(NSP_ICON_LANGS); do cp $(APP_ICON) $(NSP_BUILD)/control/icon_$$l.dat; done
+	@cd $(NSP_BUILD) && $(HACBREWPACK) -k "$(PROD_KEYS)" --titleid $(APP_TITLEID) --nologo \
+		--exefsdir exefs --controldir control --romfsdir $(CURDIR)/$(ROMFS) \
+		--nspdir nsp --ncadir nca --tempdir temp --backupdir backup
+	@mv $(NSP_BUILD)/nsp/$(shell echo $(APP_TITLEID) | tr A-F a-f).nsp $(TARGET).nsp
+	@rm -rf $(NSP_BUILD)
+	@echo built ... $(TARGET).nsp
+
+#---------------------------------------------------------------------------------
 clean:
 	@echo clean ...
+	@rm -fr $(NSP_BUILD) $(TARGET).nsp
 ifeq ($(strip $(APP_JSON)),)
 	@rm -fr $(BUILD) $(TARGET).nro $(TARGET).nacp $(TARGET).elf
 else

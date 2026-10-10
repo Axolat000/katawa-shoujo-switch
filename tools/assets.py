@@ -1,5 +1,6 @@
-"""Copies game assets into romfs/game, writes romfs/data/images.tsv and transcodes videos to MPEG-1."""
-import os, shutil, struct, subprocess, sys
+"""Copies game assets into romfs/game, writes romfs/data/images.tsv, makes the app icon and transcodes
+videos to MPEG-1."""
+import io, os, shutil, struct, subprocess, sys, urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -9,6 +10,10 @@ DATA = os.path.join(ROOT, "romfs", "data")
 FFMPEG = os.path.join(ROOT, "..", "tools_ext", "ffmpeg-8.0-essentials_build", "bin", "ffmpeg.exe")
 
 SKIP_EXT = (".rpyc", ".rpy", ".lang")
+
+# App icon (.nro and .nsp): Katawa Shoujo key art from SteamGridDB, converted to a 256x256 baseline JPEG
+ICON_URL = "https://cdn2.steamgriddb.com/icon/edcc363aeda7f5a49777a436f6029b00/32/512x512.png"
+ICON = os.path.join(ROOT, "icon.jpg")
 
 
 def image_size(path):
@@ -37,15 +42,27 @@ def image_size(path):
 
 def find_ffmpeg():
     base = os.path.join(ROOT, "..", "tools_ext")
-    for d in os.listdir(base):
+    for d in (os.listdir(base) if os.path.isdir(base) else []):
         cand = os.path.join(base, d, "bin", "ffmpeg.exe")
         if os.path.exists(cand):
             return cand
-    return None
+    return shutil.which("ffmpeg")
+
+
+def make_icon():
+    if os.path.exists(ICON):
+        return
+    from PIL import Image
+    req = urllib.request.Request(ICON_URL, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req) as r:
+        im = Image.open(io.BytesIO(r.read())).convert("RGB")
+    im.resize((256, 256), Image.LANCZOS).save(ICON, "JPEG", quality=92, progressive=False)
+    print("icon: %s" % ICON)
 
 
 def main():
     videos = "--videos" in sys.argv
+    make_icon()
     os.makedirs(OUT, exist_ok=True)
     os.makedirs(DATA, exist_ok=True)
     sizes = []
