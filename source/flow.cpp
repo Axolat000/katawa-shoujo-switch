@@ -725,6 +725,8 @@ void Game::loadPersistent() {
     if (!p->has("nx_h_choice"))
         p->attrs["hdisabled"] = Value::boolean(true);
     ensure("nx_aspect", Value::integer(gfx::ASPECT_FIT)); // native port: 16:9 hack
+    if (p->get("nx_aspect").num() != gfx::ASPECT_STRETCH)
+        p->attrs["nx_aspect"] = Value::integer(gfx::ASPECT_FIT); // retire the old zoom mode
     gfx::setAspectMode((int)p->get("nx_aspect").num());
     ensure("nx_hq", Value::boolean(true)); // native port: sharper upscaling
     gfx::setHQFilter(p->get("nx_hq").truthy());

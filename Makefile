@@ -46,9 +46,10 @@ NSP_ICON_LANGS	:=	AmericanEnglish BritishEnglish Japanese French German LatinAme
 			Spanish Italian Dutch CanadianFrench Portuguese Russian Korean \
 			TraditionalChinese SimplifiedChinese BrazilianPortuguese
 HACBREWPACK	?=	hacbrewpack
-PROD_KEYS	?=	$(firstword $(wildcard $(HOME)/.switch/prod.keys \
-			$(HOME)/.local/share/eden/keys/prod.keys \
-			$(HOME)/.local/share/yuzu/keys/prod.keys))
+PROD_KEYS	?=	$(shell for key in "$$HOME/.switch/prod.keys" \
+			"$$HOME/.local/share/eden/keys/prod.keys" \
+			"$$HOME/.local/share/yuzu/keys/prod.keys"; do \
+			if test -f "$$key"; then printf '%s' "$$key"; break; fi; done)
 
 #---------------------------------------------------------------------------------
 # options for code generation

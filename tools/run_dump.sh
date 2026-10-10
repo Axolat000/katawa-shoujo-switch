@@ -9,10 +9,22 @@ REF="$("$PYTHON" "$HERE/tools/gamedir.py" | tr -d '\r')"
 L="$REF/lib"
 echo ">> game: $REF"
 mkdir -p "$HERE/build"
-# The init hook only lives in the game directory while the dump runs
-cleanup() { rm -f "$REF/game/zz_dump.rpy" "$REF/game/zz_dump.rpyc"; }
+# Restore hooks already present in the chosen game copy, including on failure.
+HOOK_BACKUP="$(mktemp -d)"
+for hook in zz_dump.rpy zz_dump.rpyc; do
+    if [[ -e "$REF/game/$hook" ]]; then cp -p "$REF/game/$hook" "$HOOK_BACKUP/$hook"; fi
+done
+cleanup() {
+    for hook in zz_dump.rpy zz_dump.rpyc; do
+        rm -f "$REF/game/$hook"
+        if [[ -e "$HOOK_BACKUP/$hook" ]]; then
+            cp -p "$HOOK_BACKUP/$hook" "$REF/game/$hook"
+            rm -f "$HOOK_BACKUP/$hook"
+        fi
+    done
+    rmdir "$HOOK_BACKUP"
+}
 trap cleanup EXIT
-cleanup
 cp "$HERE/tools/zz_dump.rpy" "$REF/game/zz_dump.rpy"
 
 case "$(uname -s)" in

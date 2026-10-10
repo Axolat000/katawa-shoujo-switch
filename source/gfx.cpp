@@ -304,7 +304,7 @@ void setOutputSize(int w, int h) {
 int outW() { return g_outW; }
 int outH() { return g_outH; }
 
-void setAspectMode(int mode) { g_aspect = mode < 0 || mode > ASPECT_ZOOM ? ASPECT_FIT : mode; }
+void setAspectMode(int mode) { g_aspect = mode == ASPECT_STRETCH ? ASPECT_STRETCH : ASPECT_FIT; }
 int aspectMode() { return g_aspect; }
 
 void screenRect(float &x, float &y, float &w, float &h) {
@@ -314,13 +314,11 @@ void screenRect(float &x, float &y, float &w, float &h) {
         h = (float)g_outH;
         return;
     }
-    // ASPECT_ZOOM fills the window and lets the extra height fall outside it
-    float s = g_aspect == ASPECT_ZOOM ? std::max(g_outW / VW, g_outH / VH) : std::min(g_outW / VW, g_outH / VH);
+    float s = std::min(g_outW / VW, g_outH / VH);
     w = std::floor(VW * s);
     h = std::floor(VH * s);
     x = std::floor((g_outW - w) / 2);
-    // zooming crops from the top only, so the say window keeps its place at the bottom
-    y = g_aspect == ASPECT_ZOOM ? (float)g_outH - h : std::floor((g_outH - h) / 2);
+    y = std::floor((g_outH - h) / 2);
 }
 
 float pixelScale() {

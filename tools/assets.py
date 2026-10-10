@@ -53,9 +53,21 @@ def make_icon():
     if os.path.exists(ICON):
         return
     from PIL import Image
-    req = urllib.request.Request(ICON_URL, headers={"User-Agent": "Mozilla/5.0"})
-    with urllib.request.urlopen(req) as r:
-        im = Image.open(io.BytesIO(r.read())).convert("RGB")
+    try:
+        req = urllib.request.Request(ICON_URL, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            im = Image.open(io.BytesIO(r.read())).convert("RGB")
+    except (OSError, ValueError) as exc:
+        fallback = os.path.join(ROOT, "extracted", "ui", "main", "bg-main.png")
+        if not os.path.isfile(fallback):
+            raise RuntimeError("Icon download failed and extracted/ui/main/bg-main.png is missing; "
+                               "extract data.rpa or provide icon.jpg") from exc
+        print("icon download unavailable (%s); using locally extracted menu art" % exc)
+        with Image.open(fallback) as source:
+            side = min(source.size)
+            left = (source.width - side) // 2
+            top = (source.height - side) // 2
+            im = source.crop((left, top, left + side, top + side)).convert("RGB")
     im.resize((256, 256), Image.LANCZOS).save(ICON, "JPEG", quality=92, progressive=False)
     print("icon: %s" % ICON)
 

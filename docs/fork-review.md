@@ -116,3 +116,19 @@ the existing local game data. The final local NRO is 576,732,830 bytes; neither
 that binary nor game assets are committed. Physical Switch touch/controller input
 remains untested. The earlier fork-review findings above are not fixed by this
 follow-up.
+
+## Final fixes before merging into main
+
+The three findings above have now been fixed. The dumper restores any existing
+`zz_dump.rpy` and `zz_dump.rpyc` after a failed run; both file contents were
+verified unchanged using a disposable game fixture. GNU make now detects a key
+under a home directory containing spaces. If the icon CDN is unavailable, the
+asset tool generates a 256x256 JPEG icon from the user's locally extracted main
+menu artwork.
+
+The experimental zoomed 16:9 mode was removed. Existing saves that selected it
+fall back to 4:3. The Special features screen now hands focus from touch input
+to controller A and moves focus to a visible option when scrolling with the
+right stick. A PC test opened the panel through pointer input, scrolled to its
+last option, and then toggled it on and back off using only A. This verifies the
+reported controller issue without shipping any game or patch assets.

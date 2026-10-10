@@ -36,7 +36,7 @@ for f in "$GAME"/game/lang-*.rpa; do python tools/unrpa.py extracted_lang "$f"; 
 # 2. Dump the Ren'Py init state (the Steam install is found automatically; set KS_GAME_ROOT to override)
 ./tools/run_dump.sh
 
-# 3. Convert the scripts, copy the assets, download the icon and transcode the videos
+# 3. Convert the scripts, copy the assets, prepare the icon and transcode the videos
 python tools/convert.py
 python tools/assets.py --videos
 
@@ -79,8 +79,8 @@ The NSP is not officially signed: installing it needs custom firmware with sigpa
 
 ## Special features
 
-Open **Options > Special features** to choose original 4:3, stretched 16:9, or
-zoomed 16:9 (cropped at the top), and to toggle sharper bicubic upscaling.
+Open **Options > Special features** to choose original 4:3 or stretched 16:9,
+and to toggle sharper bicubic upscaling.
 These settings are saved between sessions.
 
 The panel wraps long labels and scrolls within its frame. Use the D-pad/arrow keys
@@ -90,6 +90,7 @@ mouse wheel and touchscreen swipes also scroll. The Return button stays visible.
 If your local game data includes the optional content patch, its setting appears
 in this panel and is disabled by default. Game and patch assets are not included
 in the repository; their existing licenses still apply.
+Older saves selecting the removed zoom mode revert to original 4:3.
 
 ## Testing
 
@@ -117,4 +118,8 @@ Third-party libraries and code retain their own licenses and copyright notices.
 ## Credits
 
 *Katawa Shoujo* © Four Leaf Studios (CC BY-NC-ND 3.0); the app icon, built from its key art, is
-downloaded from SteamGridDB at build time. Libraries: SDL2, stb_vorbis (public domain), pl_mpeg (MIT).
+downloaded from SteamGridDB at build time; if unavailable, locally extracted menu
+art supplies a fallback icon. Libraries: SDL2, stb_vorbis (public domain), pl_mpeg (MIT).
+
+Switch port: Axolat000. Thanks to [Noorquacker](https://github.com/Noorquacker)
+for the Linux build, Steam library detection, NSP packaging and icon improvements.

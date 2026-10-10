@@ -38,7 +38,6 @@ int outH();
 enum AspectMode {
     ASPECT_FIT = 0,     // 4:3 centred, pillarboxed (original)
     ASPECT_STRETCH = 1, // stretched to fill the whole screen
-    ASPECT_ZOOM = 2,    // scaled to fill, cropped at the top to preserve the dialogue window
 };
 void setAspectMode(int mode);
 int aspectMode();

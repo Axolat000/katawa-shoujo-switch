@@ -78,6 +78,9 @@ void beginFrame() {
     const Input &in = g_input;
     if (in.pointerMoved || in.pointerPressed)
         g_pointerMode = true;
+    // A/Enter takes over from touch/mouse focus even without a D-pad press.
+    if (in.accept && !in.pointerPressed && !in.pointerReleased)
+        g_pointerMode = false;
     if (in.up || in.down || in.left || in.right) {
         g_pointerMode = false;
         if (g_prev.empty())
@@ -785,10 +788,7 @@ static void hacksScreen(bool mm) {
     kui::focus(lastFocus);
     runScreen([&](ScreenResult &res) {
         pageBackground(mm);
-        float sx, sy, sw, sh;
-        gfx::screenRect(sx, sy, sw, sh);
-        // Keep the heading visible even when the top of the game is cropped by zoom mode.
-        const float captionY = std::max(120.0f, -sy * VH / sh + 12.0f);
+        const float captionY = 120.0f;
         const float x = 200, width = 420, top = captionY + 34, bottom = 430;
         const float viewH = bottom - top;
         TextStyle cap = kui::colored(kui::style("page_caption"), "#00000066");
@@ -821,11 +821,10 @@ static void hacksScreen(bool mm) {
             add("", title, head);
             add("", desc, note);
         };
-        section("Screen", "The game was drawn for a 4:3 screen: filling a 16:9 one either distorts the art or crops it.");
-        const char *labels[3] = {"Original 4:3 (black bars)", "Full 16:9 (stretched)",
-                                 "Full 16:9 (zoomed, crops the top)"};
+        section("Screen", "The game was drawn for a 4:3 screen. Full 16:9 stretches the artwork to fill the display.");
+        const char *labels[2] = {"Original 4:3 (black bars)", "Full 16:9 (stretched)"};
         int mode = gfx::aspectMode();
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < 2; i++)
             add("aspect" + std::to_string(i), labels[i], labelStyle, mode == i);
         section("Picture", "The art is 800x600 and has to be blown up. Bicubic filtering keeps more detail than the console's default smoothing.");
         add("hqfilter", "Sharper upscaling", labelStyle, gfx::hqFilter());
@@ -852,6 +851,17 @@ static void hacksScreen(bool mm) {
             }
         }
         scroll = std::max(0.0f, std::min(scroll, maxScroll));
+        if (g_input.scroll != 0 && !g_input.pointerDown) {
+            // Right stick and wheel scrolling move controller focus to a visible choice.
+            const Row *visible = nullptr;
+            for (const Row &row : rows) {
+                if (row.id.empty() || row.y < scroll || row.y + row.h > scroll + viewH)
+                    continue;
+                if (!visible || (g_input.scroll > 0 ? row.y > visible->y : row.y < visible->y))
+                    visible = &row;
+            }
+            if (visible) kui::focus(visible->id);
+        }
         if (g_input.pointerPressed) dragged = false;
         if (g_input.pointerDown && g_input.scroll != 0) dragged = true;
         Input originalInput = g_input;
