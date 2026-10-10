@@ -77,10 +77,26 @@ The NSP is not officially signed: installing it needs custom firmware with sigpa
 | ZR (held) | Skip |
 | ZL | Auto mode |
 
+## Special features
+
+Open **Options > Special features** to choose original 4:3, stretched 16:9, or
+zoomed 16:9 (cropped at the top), and to toggle sharper bicubic upscaling.
+These settings are saved between sessions.
+
+The panel wraps long labels and scrolls within its frame. Use the D-pad/arrow keys
+to move between settings; the selected setting scrolls into view. The right stick,
+mouse wheel and touchscreen swipes also scroll. The Return button stays visible.
+
+If your local game data includes the optional content patch, its setting appears
+in this panel and is disabled by default. Game and patch assets are not included
+in the repository; their existing licenses still apply.
+
 ## Testing
 
 A `test.txt` file in the user directory (or environment variables) drives automated tests:
 `KS_SHOTS=10,20` takes screenshots, `KS_KEYS=12:A,15:S` injects inputs.
+Menu tests also accept `SCROLL=120` (virtual pixels, negative scrolls up) and
+`CLICK=240/450` (virtual 800x600 coordinates), for example `KS_KEYS=20:SCROLL=120`.
 
 ## Status
 

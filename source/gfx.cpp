@@ -92,6 +92,7 @@ CMat CMat::alpha(float a) {
 namespace gfx {
 
 static int g_outW = 1280, g_outH = 720;
+static int g_aspect = ASPECT_FIT;
 static float g_vw = VW, g_vh = VH;
 static int g_pixW = 1280, g_pixH = 720; // current target pixel size
 static int g_vpX = 0, g_vpY = 0;
@@ -100,9 +101,11 @@ static GLuint g_vbo = 0;
 
 struct Prog {
     GLuint id = 0;
-    GLint m1, m2, proj, uv, alpha, cm, co, usecm, color, tex0, tex1, tex2, t, offset, mult;
+    GLint m1, m2, proj, uv, alpha, cm, co, usecm, color, tex0, tex1, tex2, t, offset, mult, texsz;
 };
-static Prog g_tex, g_solid, g_blend, g_image;
+static Prog g_tex, g_texHQ, g_solid, g_blend, g_image;
+static bool g_hq = false;                          // sharper upscaling (Special features)
+static std::map<unsigned, std::pair<int, int>> g_texSize;
 static GLuint g_cur = 0;
 
 static const char *VS = R"(
@@ -129,6 +132,51 @@ uniform float u_usecm;
 varying vec2 v_uv;
 void main() {
     vec4 c = texture2D(u_tex0, v_uv);
+    if (u_usecm > 0.5) c = clamp(u_cm * c + u_co, 0.0, 1.0);
+    c.a *= u_alpha;
+    gl_FragColor = c;
+}
+)";
+
+// Catmull-Rom bicubic magnification (9 bilinear taps): sharper than the hardware's
+// bilinear when the 800x600 art is blown up to the console's screen.
+static const char *FS_TEX_HQ = R"(
+precision highp float;
+uniform sampler2D u_tex0;
+uniform float u_alpha;
+uniform mat4 u_cm;
+uniform vec4 u_co;
+uniform float u_usecm;
+uniform vec4 u_uv;
+uniform vec2 u_texsz;
+varying vec2 v_uv;
+vec4 tap(vec2 uv) {
+    vec2 e = 0.5 / u_texsz;
+    return texture2D(u_tex0, clamp(uv, u_uv.xy + e, u_uv.xy + u_uv.zw - e));
+}
+void main() {
+    vec2 pos = v_uv * u_texsz;
+    vec2 tc1 = floor(pos - 0.5) + 0.5;
+    vec2 f = pos - tc1;
+    vec2 w0 = f * (-0.5 + f * (1.0 - 0.5 * f));
+    vec2 w1 = 1.0 + f * f * (-2.5 + 1.5 * f);
+    vec2 w2 = f * (0.5 + f * (2.0 - 1.5 * f));
+    vec2 w3 = f * f * (-0.5 + 0.5 * f);
+    vec2 w12 = w1 + w2;
+    vec2 p0 = (tc1 - 1.0) / u_texsz;
+    vec2 p3 = (tc1 + 2.0) / u_texsz;
+    vec2 p12 = (tc1 + w2 / w12) / u_texsz;
+    vec4 c = vec4(0.0);
+    c += tap(vec2(p0.x, p0.y)) * w0.x * w0.y;
+    c += tap(vec2(p12.x, p0.y)) * w12.x * w0.y;
+    c += tap(vec2(p3.x, p0.y)) * w3.x * w0.y;
+    c += tap(vec2(p0.x, p12.y)) * w0.x * w12.y;
+    c += tap(vec2(p12.x, p12.y)) * w12.x * w12.y;
+    c += tap(vec2(p3.x, p12.y)) * w3.x * w12.y;
+    c += tap(vec2(p0.x, p3.y)) * w0.x * w3.y;
+    c += tap(vec2(p12.x, p3.y)) * w12.x * w3.y;
+    c += tap(vec2(p3.x, p3.y)) * w3.x * w3.y;
+    c = clamp(c, 0.0, 1.0);
     if (u_usecm > 0.5) c = clamp(u_cm * c + u_co, 0.0, 1.0);
     c.a *= u_alpha;
     gl_FragColor = c;
@@ -216,6 +264,7 @@ static Prog link(const char *fs) {
     p.t = U("u_t");
     p.offset = U("u_offset");
     p.mult = U("u_mult");
+    p.texsz = U("u_texsz");
     glUseProgram(p.id);
     if (p.tex0 >= 0)
         glUniform1i(p.tex0, 0);
@@ -228,6 +277,7 @@ static Prog link(const char *fs) {
 
 bool init() {
     g_tex = link(FS_TEX);
+    g_texHQ = link(FS_TEX_HQ);
     g_solid = link(FS_SOLID);
     g_blend = link(FS_BLEND);
     g_image = link(FS_IMAGE);
@@ -254,12 +304,23 @@ void setOutputSize(int w, int h) {
 int outW() { return g_outW; }
 int outH() { return g_outH; }
 
+void setAspectMode(int mode) { g_aspect = mode < 0 || mode > ASPECT_ZOOM ? ASPECT_FIT : mode; }
+int aspectMode() { return g_aspect; }
+
 void screenRect(float &x, float &y, float &w, float &h) {
-    float s = std::min(g_outW / VW, g_outH / VH);
+    if (g_aspect == ASPECT_STRETCH) {
+        x = y = 0;
+        w = (float)g_outW;
+        h = (float)g_outH;
+        return;
+    }
+    // ASPECT_ZOOM fills the window and lets the extra height fall outside it
+    float s = g_aspect == ASPECT_ZOOM ? std::max(g_outW / VW, g_outH / VH) : std::min(g_outW / VW, g_outH / VH);
     w = std::floor(VW * s);
     h = std::floor(VH * s);
     x = std::floor((g_outW - w) / 2);
-    y = std::floor((g_outH - h) / 2);
+    // zooming crops from the top only, so the say window keeps its place at the bottom
+    y = g_aspect == ASPECT_ZOOM ? (float)g_outH - h : std::floor((g_outH - h) / 2);
 }
 
 float pixelScale() {
@@ -375,6 +436,7 @@ RenderTarget *acquireTarget(int w, int h) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    g_texSize[rt->tex] = {w, h};
     glGenFramebuffers(1, &rt->fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, rt->fbo);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, rt->tex, 0);
@@ -388,6 +450,7 @@ void releaseTarget(RenderTarget *rt) {
         return;
     if (g_pool.size() > 24) {
         glDeleteFramebuffers(1, &rt->fbo);
+        g_texSize.erase(rt->tex);
         glDeleteTextures(1, &rt->tex);
         delete rt;
         return;
@@ -409,19 +472,30 @@ static void use(const Prog &p, const Mat &m, float u0, float v0, float u1, float
 void drawTexture(unsigned tex, const Mat &m, float u0, float v0, float u1, float v1, float alpha, const CMat *cm) {
     if (alpha <= 0.003f || !tex)
         return;
-    use(g_tex, m, u0, v0, u1, v1);
-    glUniform1f(g_tex.alpha, alpha);
+    const Prog *P = &g_tex;
+    auto sz = g_texSize.find(tex);
+    if (g_hq && sz != g_texSize.end()) {
+        // bicubic only where it shows: when the source is drawn bigger than it is
+        float sw = std::fabs(u1 - u0) * sz->second.first, sh = std::fabs(v1 - v0) * sz->second.second;
+        float dw = std::fabs(m.a) * g_pixW / g_vw, dh = std::fabs(m.d) * g_pixH / g_vh;
+        if (sw > 1 && sh > 1 && (dw > sw * 1.02f || dh > sh * 1.02f))
+            P = &g_texHQ;
+    }
+    use(*P, m, u0, v0, u1, v1);
+    if (P == &g_texHQ)
+        glUniform2f(P->texsz, (float)sz->second.first, (float)sz->second.second);
+    glUniform1f(P->alpha, alpha);
     if (cm && !cm->identity) {
         // GLSL mat4 is column-major; rows of the color matrix become columns.
         GLfloat mm[16];
         for (int row = 0; row < 4; row++)
             for (int col = 0; col < 4; col++)
                 mm[col * 4 + row] = cm->m[row * 5 + col];
-        glUniformMatrix4fv(g_tex.cm, 1, GL_FALSE, mm);
-        glUniform4f(g_tex.co, cm->m[4], cm->m[9], cm->m[14], cm->m[19]);
-        glUniform1f(g_tex.usecm, 1.0f);
+        glUniformMatrix4fv(P->cm, 1, GL_FALSE, mm);
+        glUniform4f(P->co, cm->m[4], cm->m[9], cm->m[14], cm->m[19]);
+        glUniform1f(P->usecm, 1.0f);
     } else {
-        glUniform1f(g_tex.usecm, 0.0f);
+        glUniform1f(P->usecm, 0.0f);
     }
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, tex);
@@ -479,13 +553,18 @@ unsigned uploadTexture(const uint8_t *px, int w, int h, bool rgb, bool mipmap) {
     } else {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     }
+    g_texSize[t] = {w, h};
     return t;
 }
 
 void deleteTexture(unsigned tex) {
     GLuint t = tex;
+    g_texSize.erase(tex);
     glDeleteTextures(1, &t);
 }
+
+void setHQFilter(bool on) { g_hq = on; }
+bool hqFilter() { return g_hq; }
 
 } // namespace gfx
 

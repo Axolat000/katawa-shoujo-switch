@@ -1,6 +1,8 @@
 # Game content (never redistributed: generated from your own copy of the game)
 extracted/
 extracted_lang/
+extracted_r18/
+userdata/
 extracted_list.txt
 decompiled/
 lang/

@@ -95,3 +95,24 @@ establish full-route, save/load or hardware compatibility.
 Local build logs and isolated reproduction probes are in the ignored `build/`
 directory of the review checkout. Screenshots are local in `userdata/` and are
 not included in this branch.
+
+## Follow-up: local features and settings viewport
+
+The branch now also includes the original checkout's pending native features:
+three aspect modes, optional bicubic filtering, persistent settings and optional
+patch support (disabled by default). The original checkout remains untouched.
+
+The Special features screen now measures and wraps its text, clips rendering and
+pointer hit tests to a scrollable viewport, follows keyboard/controller focus,
+and keeps Return separate from the scrolling content. Its heading stays visible
+in zoom mode. Swiping suppresses activation on release.
+
+Validation: PC and Switch NRO builds passed. Automated PC screenshots at 1280x720
+confirmed all three aspect modes, controller focus scrolling to the final option,
+persisted aspect selection after restart, and the optional toggle initially off.
+Injected scroll inputs of +9999/-9999 stopped at the content boundaries; clicks
+outside the viewport left the displayed options unchanged. Runtime testing used
+the existing local game data. The final local NRO is 576,732,830 bytes; neither
+that binary nor game assets are committed. Physical Switch touch/controller input
+remains untested. The earlier fork-review findings above are not fixed by this
+follow-up.

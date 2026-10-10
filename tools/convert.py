@@ -821,6 +821,9 @@ def script_files():
         files.append(f)
     for f in sorted(glob.glob(os.path.join(ROOT, "extracted_lang", "*.rpyc"))):
         files.append(f)
+    # optional 18+ patch (r18.rpa extracted to extracted_r18/)
+    for f in sorted(glob.glob(os.path.join(ROOT, "extracted_r18", "*.rpyc"))):
+        files.append(f)
     for f in sorted(glob.glob(os.path.join(GAME, "..", "renpy", "common", "*.rpyc"))):
         files.append(f)
     return files
@@ -841,7 +844,7 @@ def main():
     for f in script_files():
         m = LANG_RE.search(os.path.basename(f))
         lang = m.group(1).lower() if m else None
-        if lang and os.path.basename(f).startswith("ui-strings"):
+        if lang and os.path.basename(f).startswith(("ui-strings", "r18-ui-strings")):
             lang = None  # init only
         lin = base if lang is None else langs.setdefault(lang, Linearizer())
         data, stmts = load_rpyc(f)

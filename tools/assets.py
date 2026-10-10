@@ -4,7 +4,7 @@ import io, os, shutil, struct, subprocess, sys, urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-SRC_DIRS = [os.path.join(ROOT, "extracted"), os.path.join(ROOT, "extracted_lang")]
+SRC_DIRS = [os.path.join(ROOT, "extracted"), os.path.join(ROOT, "extracted_lang"), os.path.join(ROOT, "extracted_r18")]
 OUT = os.path.join(ROOT, "romfs", "game")
 DATA = os.path.join(ROOT, "romfs", "data")
 FFMPEG = os.path.join(ROOT, "..", "tools_ext", "ffmpeg-8.0-essentials_build", "bin", "ffmpeg.exe")
