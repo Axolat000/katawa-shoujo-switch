@@ -1,0 +1,97 @@
+# Noorquacker fork integration review
+
+Reviewed on 2026-10-10. Base: `32d6855` (`main`). Imported upstream:
+`Noorquacker/katawa-shoujo-switch@ac25f539b81f7a05b022e089a6b6224371a59b3c`.
+Integration commit: `9e583d4`, branch `review/noorquacker-fork`.
+
+All five upstream commits' changes are included in one commit attributed to Noorquacker.
+The imported tree differs from upstream only in the existing MIT LICENSE and README
+license section. This review document is a separate addition. Uncommitted changes in
+the original checkout were not included or modified. No game data or keys are committed.
+
+Recommendation: keep this branch separate until the findings below are addressed.
+This review records the fork as imported; it does not fix its behavior.
+
+## Findings
+
+### P1: Preserve existing dump hooks before installing temporary files
+
+Location: `tools/run_dump.sh:13-16`.
+
+The wrapper unconditionally deletes `game/zz_dump.rpy` and `game/zz_dump.rpyc`
+before copying its own hook, and deletes them again on exit. When a user points
+`KS_GAME_ROOT` at a previously configured reference copy, this destroys their
+existing hook, even if the runtime subsequently fails. This is relevant to the
+previous documented workflow, which required such a hook in `pc_ref`.
+
+Reproduced with two sentinel files in a disposable fake game directory: after a
+failed invocation both files were absent. Back up and restore pre-existing files,
+or refuse the collision before touching either file. Working in a disposable game
+copy would also avoid modifying the Steam installation.
+
+### P2: Automatic NSP key discovery fails when HOME contains spaces
+
+Location: `Makefile:49-51`.
+
+`$(wildcard $(HOME)/...)` splits paths at spaces, and `$(firstword ...)` cannot
+preserve a multiword filename either. An existing key under a user directory such
+as `User With Spaces/.switch/prod.keys` is therefore not detected. The NSP target
+then reports a missing key although the documented location contains one.
+
+Reproduced using GNU make and a dummy file in a temporary home directory with
+spaces: the exact discovery expression produced an empty value. Use quoted shell
+path checks to select a complete filename. An explicit `PROD_KEYS=...` argument
+is a workaround; the recipe itself quotes that argument.
+
+### P2: An unavailable icon CDN prevents all first-time asset preparation
+
+Location: `tools/assets.py:52-65`.
+
+The newly mandatory icon download executes before the asset-copying and video
+work, has no explicit timeout, and propagates network failures. With no cached
+`icon.jpg`, a CDN outage or an offline build prevents preparing locally owned game
+assets. The previous version did not require this network step.
+
+Reproduced by making `urlopen` raise a simulated network error: `main()` exited
+before creating either output directory. Make icon acquisition separately
+invocable or provide a local fallback/input, with a bounded download timeout and
+an actionable error. The real download succeeded during this review.
+
+## Executed validation
+
+- Bash syntax validation passed for the build scripts and dump wrapper.
+- Python 3 tools parsed successfully; the two Python 2 tools compiled using the
+  game's bundled Python 2 runtime. They are intentionally not Python 3 compatible.
+- Automatic Steam game detection succeeded on Windows.
+- Real initialization dump succeeded on an isolated, unpatched copy of the Steam
+  installation: 42,489 objects and 5,277 registered images. Steam was not modified.
+- Script conversion succeeded: 3,170 Python snippets, zero parse errors, and base
+  plus language data files generated. An initial sandbox run could not launch the
+  bundled Python 2 runtime; the unrestricted rerun succeeded.
+- Asset preparation copied 1,762 files, indexed 1,646 images, downloaded the icon,
+  and transcoded 23 videos successfully.
+- A clean PC compilation succeeded. A smoke test visually confirmed the animated
+  introductory logo, main menu, snowy prologue and dialogue advancement. Runtime
+  initialization reported 473 Python definitions loaded and zero failures.
+- A clean Switch NRO compilation succeeded through the Windows drive-substitution
+  wrapper: `KatawaShoujo.nro`, 548,803,282 bytes. Existing compiler warnings remain.
+- The NSP target generated its executable, NPDM and control staging files, then
+  stopped at `hacbrewpack: command not found`. The standalone NPDM conversion
+  produced 996 bytes, with warnings about absent optional/defaulted fields.
+- The three failure cases above were reproduced with disposable fixtures and
+  dummy key data. No real keys were displayed or uploaded.
+- A mocked Linux NRO build returned success; this checks wrapper control flow
+  only, not native Linux compilation.
+- Git whitespace validation passed.
+
+## Validation limits
+
+There is no installed WSL/Linux environment here. Native Linux compilation and
+the bundled Linux Ren'Py runtime remain untested. hacBrewPack is not installed,
+so complete NSP packaging and installation remain unverified. The newly built NRO
+has not been run on a console or emulator in this review. PC smoke tests do not
+establish full-route, save/load or hardware compatibility.
+
+Local build logs and isolated reproduction probes are in the ignored `build/`
+directory of the review checkout. Screenshots are local in `userdata/` and are
+not included in this branch.
