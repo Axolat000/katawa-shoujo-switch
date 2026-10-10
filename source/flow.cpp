@@ -721,6 +721,17 @@ void Game::loadPersistent() {
                           "shizunebad", "rin", "rinbad", "rintrue", "bad"})
         ensure(k, Value::integer(0));
     ensure("hdisabled", Value::boolean(false));
+    // 18+ patch (config.r18): off until the player turns it on in Special features
+    if (!p->has("nx_h_choice"))
+        p->attrs["hdisabled"] = Value::boolean(true);
+    ensure("nx_aspect", Value::integer(gfx::ASPECT_FIT)); // native port: 16:9 hack
+    if (p->get("nx_aspect").num() != gfx::ASPECT_STRETCH)
+        p->attrs["nx_aspect"] = Value::integer(gfx::ASPECT_FIT); // retire the old zoom mode
+    gfx::setAspectMode((int)p->get("nx_aspect").num());
+    ensure("nx_hq", Value::boolean(true)); // native port: sharper upscaling
+    gfx::setHQFilter(p->get("nx_hq").truthy());
+    if (const char *e = getenv("KS_HQ")) // test hook: force the filter on/off
+        gfx::setHQFilter(atoi(e) != 0);
     audio::setMixerVolume("music", prefs.musicVolume);
     audio::setMixerVolume("sfx", prefs.sfxVolume);
 }

@@ -1,4 +1,4 @@
-# Runs INSIDE Ren'Py 6.16 (Python 2.7) at the end of the init phase, via pc_ref/game/zz_dump.rpy.
+# Runs INSIDE Ren'Py 6.16 (Python 2.7) at the end of the init phase, via game/zz_dump.rpy (installed by run_dump.sh).
 # Serializes the image registry, the store, styles and config to JSON, preserving shared objects.
 import os, sys, types, json, math
 

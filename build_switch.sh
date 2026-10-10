@@ -14,6 +14,29 @@ set -euo pipefail
 DKP_BASH="${DKP_BASH:-/c/devkitPro/msys2/usr/bin/bash}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+MAKE_ARGS=("$@")
+if [[ " ${MAKE_ARGS[*]:-} " != *" -j"* ]]; then
+    MAKE_ARGS=("-j$(nproc 2>/dev/null || echo 4)" ${MAKE_ARGS[@]+"${MAKE_ARGS[@]}"})
+fi
+
+# Linux/macOS: devkitPro is installed natively, just run make (the path must not contain spaces)
+case "$(uname -s)" in
+MINGW*|MSYS*|CYGWIN*) ;;
+*)
+    if [[ "$SCRIPT_DIR" == *" "* ]]; then
+        echo "error: devkitPro's makefiles do not support spaces in the project path ($SCRIPT_DIR)" >&2
+        exit 1
+    fi
+    export DEVKITPRO="${DEVKITPRO:-/opt/devkitpro}"
+    status=0
+    make -C "$SCRIPT_DIR" ${MAKE_ARGS[@]+"${MAKE_ARGS[@]}"} || status=$?
+    if [[ $status -eq 0 ]]; then
+        for f in "$SCRIPT_DIR"/KatawaShoujo.{nro,nsp}; do [[ "$f" -nt "$0" && -f "$f" ]] && echo ">> OK: $f"; done
+    fi
+    exit $status
+    ;;
+esac
+
 if [[ ! -x "$DKP_BASH" ]]; then
     echo "error: devkitPro msys2 bash not found at $DKP_BASH (set DKP_BASH)" >&2
     exit 1
@@ -55,10 +78,6 @@ else
     echo ">> path contains spaces: building via ${DRIVE}: ($BUILD_DIR)"
 fi
 
-MAKE_ARGS=("$@")
-if [[ " ${MAKE_ARGS[*]:-} " != *" -j"* ]]; then
-    MAKE_ARGS=("-j$(nproc 2>/dev/null || echo 4)" ${MAKE_ARGS[@]+"${MAKE_ARGS[@]}"})
-fi
 QUOTED_ARGS="$(printf '%q ' "${MAKE_ARGS[@]}")"
 
 status=0

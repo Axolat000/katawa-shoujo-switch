@@ -349,6 +349,12 @@ static void testHooks(bool keysPhase) {
                 in.left = true;
             else if (k == "Rt")
                 in.right = true;
+            else if (k.compare(0, 7, "SCROLL=") == 0)
+                in.scroll += (float)atof(k.c_str() + 7);
+            else if (k.compare(0, 6, "CLICK=") == 0) {
+                if (sscanf(k.c_str() + 6, "%f/%f", &in.px, &in.py) == 2)
+                    in.pointerMoved = in.pointerReleased = true;
+            }
             else if (k == "S")
                 G.configV.inst()->attrs["skipping"] = Value::str("slow");
             it = keys.erase(it);
@@ -387,7 +393,10 @@ static int gameThread(void *) {
     bool handheld = platform::isHandheld();
     g_win = SDL_CreateWindow("Katawa Shoujo", 0, 0, handheld ? 1280 : 1920, handheld ? 720 : 1080, SDL_WINDOW_OPENGL);
 #else
-    g_win = SDL_CreateWindow("Katawa Shoujo", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1024, 768,
+    int winW = 1024, winH = 768; // KS_WIN=1280x720 to test the console's 16:9 output
+    if (const char *e = getenv("KS_WIN"))
+        sscanf(e, "%dx%d", &winW, &winH);
+    g_win = SDL_CreateWindow("Katawa Shoujo", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, winW, winH,
                              SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
 #endif
     if (!g_win) {

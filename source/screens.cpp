@@ -78,6 +78,9 @@ void beginFrame() {
     const Input &in = g_input;
     if (in.pointerMoved || in.pointerPressed)
         g_pointerMode = true;
+    // A/Enter takes over from touch/mouse focus even without a D-pad press.
+    if (in.accept && !in.pointerPressed && !in.pointerReleased)
+        g_pointerMode = false;
     if (in.up || in.down || in.left || in.right) {
         g_pointerMode = false;
         if (g_prev.empty())
@@ -616,6 +619,7 @@ static double faderInverse(double v) { return (2.0 / M_PI) * std::acos(1.0 - v);
 static double fader(double v) { return 1.0 - std::cos(v * M_PI / 2.0); }
 
 static void languageScreen(bool mm);
+static void hacksScreen(bool mm);
 
 static bool slider(const std::string &id, float x, float y, float w, double &value) {
     bool hov = false;
@@ -715,6 +719,10 @@ static void prefsScreen(bool mm) {
         if (kui::widgetButton("language", g.ds("config_language_sel"), "ui/bt-language.png", x, y, 300, 30, 3)) {
             languageScreen(mm);
         }
+        y += 33;
+        if (kui::widgetButton("hacks", "Special features", "ui/bt-star.png", x, y, 300, 30, 1)) {
+            hacksScreen(mm);
+        }
         if (kui::returnButton(g.ds("return_button_text")) || g_input.cancel || g_input.menu) {
             g.savePersistent();
             res.done = true;
@@ -767,6 +775,146 @@ static void languageScreen(bool mm) {
         }
         if (kui::returnButton(g.ds("return_button_text")) || g_input.cancel || g_input.menu)
             res.done = true;
+    });
+}
+
+// ------------------------------------------------------------------ special features (native port only)
+
+static void hacksScreen(bool mm) {
+    Game &g = G;
+    float scroll = 0;
+    bool dragged = false;
+    std::string lastFocus = "aspect" + std::to_string(gfx::aspectMode());
+    kui::focus(lastFocus);
+    runScreen([&](ScreenResult &res) {
+        pageBackground(mm);
+        const float captionY = 120.0f;
+        const float x = 200, width = 420, top = captionY + 34, bottom = 430;
+        const float viewH = bottom - top;
+        TextStyle cap = kui::colored(kui::style("page_caption"), "#00000066");
+        cap.bold = true;
+        kui::text("Special features", cap, 180, captionY, 0, 460);
+        TextStyle note = kui::colored(kui::style("default", 16), "#00000066");
+        TextStyle head = kui::colored(kui::style("prefs_label", 22), "#000000");
+        head.bold = true;
+        TextStyle labelStyle = kui::style("prefs_label", 22);
+        struct Row {
+            std::string id, label;
+            TextStyle style;
+            float y, h;
+            bool checked;
+        };
+        std::vector<Row> rows;
+        std::vector<std::string> order;
+        float y = 0;
+        auto add = [&](const std::string &id, const std::string &label, const TextStyle &style, bool checked = false) {
+            float height = kui::measure(label, style, width - (id.empty() ? 0 : 34)).second;
+            if (!id.empty()) {
+                height = std::max(30.0f, height);
+                order.push_back(id);
+            }
+            rows.push_back({id, label, style, y, height, checked});
+            y += height + (id.empty() ? 6 : 8);
+        };
+        auto section = [&](const char *title, const char *desc) {
+            if (!rows.empty()) y += 12;
+            add("", title, head);
+            add("", desc, note);
+        };
+        section("Screen", "The game was drawn for a 4:3 screen. Full 16:9 stretches the artwork to fill the display.");
+        const char *labels[2] = {"Original 4:3 (black bars)", "Full 16:9 (stretched)"};
+        int mode = gfx::aspectMode();
+        for (int i = 0; i < 2; i++)
+            add("aspect" + std::to_string(i), labels[i], labelStyle, mode == i);
+        section("Picture", "The art is 800x600 and has to be blown up. Bicubic filtering keeps more detail than the console's default smoothing.");
+        add("hqfilter", "Sharper upscaling", labelStyle, gfx::hqFilter());
+        if (g.configV.inst()->get("r18").truthy()) {
+            section("Content", "The optional content patch is installed. This setting is off by default and is saved between sessions.");
+            add("hscenes", "Adult content (18+)", labelStyle, !g.persistentGet("hdisabled").truthy());
+        }
+        order.push_back("return");
+        // Use logical order, not off-screen button coordinates, for controller navigation.
+        if (g_input.up || g_input.down) {
+            auto it = std::find(order.begin(), order.end(), lastFocus);
+            int index = it == order.end() ? 0 : (int)(it - order.begin());
+            index = std::max(0, std::min((int)order.size() - 1, index + (g_input.down ? 1 : -1)));
+            kui::focus(order[index]);
+        }
+        const float maxScroll = std::max(0.0f, y - viewH);
+        scroll += g_input.scroll;
+        if (g_input.up || g_input.down || g_input.left || g_input.right) {
+            for (const Row &row : rows) {
+                if (!row.id.empty() && kui::focused(row.id)) {
+                    if (row.y < scroll) scroll = row.y;
+                    if (row.y + row.h > scroll + viewH) scroll = row.y + row.h - viewH;
+                }
+            }
+        }
+        scroll = std::max(0.0f, std::min(scroll, maxScroll));
+        if (g_input.scroll != 0 && !g_input.pointerDown) {
+            // Right stick and wheel scrolling move controller focus to a visible choice.
+            const Row *visible = nullptr;
+            for (const Row &row : rows) {
+                if (row.id.empty() || row.y < scroll || row.y + row.h > scroll + viewH)
+                    continue;
+                if (!visible || (g_input.scroll > 0 ? row.y > visible->y : row.y < visible->y))
+                    visible = &row;
+            }
+            if (visible) kui::focus(visible->id);
+        }
+        if (g_input.pointerPressed) dragged = false;
+        if (g_input.pointerDown && g_input.scroll != 0) dragged = true;
+        Input originalInput = g_input;
+        if (dragged) g_input.pointerReleased = g_input.accept = false;
+        const Input screenInput = g_input;
+        const bool pointerInView = g_input.px >= x && g_input.px < x + width &&
+                                   g_input.py >= top && g_input.py < bottom;
+        std::string activated;
+        gfx::pushClip(x, top, x + width, bottom);
+        for (const Row &row : rows) {
+            float rowY = top + row.y - scroll;
+            if (row.id.empty()) {
+                kui::text(row.label, row.style, x, rowY, 0, width);
+                continue;
+            }
+            // Scissoring alone does not clip hit tests. Hide pointer input outside the viewport.
+            if (!pointerInView) {
+                g_input.px = g_input.py = -1;
+                g_input.pointerPressed = g_input.pointerReleased = g_input.pointerMoved = false;
+            }
+            if (rowY < top || rowY + row.h > bottom) g_input.accept = false;
+            bool hovered = false;
+            if (kui::button(row.id, x, rowY, width, row.h, true, &hovered)) activated = row.id;
+            g_input = screenInput;
+            CMat cm = kui::opacity(hovered ? 1.0f : 0.4f);
+            kui::image(row.checked ? "ui/bt-cf-checked.png" : "ui/bt-cf-unchecked.png", x, rowY, 1, &cm);
+            kui::text(row.label, kui::colored(row.style, hovered ? "#000000" : "#00000066"), x + 34, rowY, 0, width - 34);
+        }
+        gfx::popClip();
+        if (maxScroll > 0) {
+            float thumbH = std::max(24.0f, viewH * viewH / y);
+            float thumbY = top + (viewH - thumbH) * scroll / maxScroll;
+            gfx::drawSolid(matRect(x + width + 12, top, 4, viewH), 0, 0, 0, 0.12f);
+            gfx::drawSolid(matRect(x + width + 12, thumbY, 4, thumbH), 0, 0, 0, 0.45f);
+        }
+        if (kui::returnButton(g.ds("return_button_text")) || g_input.cancel || g_input.menu)
+            res.done = true;
+        for (const auto &id : order) if (kui::focused(id)) lastFocus = id;
+        g_input = originalInput;
+        if (g_input.pointerReleased) dragged = false;
+        // Apply screen-size changes after drawing and hit testing in the old coordinate system.
+        if (activated.compare(0, 6, "aspect") == 0) {
+            int value = activated.back() - '0';
+            gfx::setAspectMode(value);
+            g.persistentSet("nx_aspect", Value::integer(value));
+        } else if (activated == "hqfilter") {
+            gfx::setHQFilter(!gfx::hqFilter());
+            g.persistentSet("nx_hq", Value::boolean(gfx::hqFilter()));
+        } else if (activated == "hscenes") {
+            g.persistentSet("hdisabled", Value::boolean(!g.persistentGet("hdisabled").truthy()));
+            g.persistentSet("nx_h_choice", Value::boolean(true));
+        }
+        if (!activated.empty()) g.savePersistent();
     });
 }
 

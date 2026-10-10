@@ -34,6 +34,18 @@ void setOutputSize(int w, int h); // window pixels
 int outW();
 int outH();
 
+// How the 800x600 game screen is mapped onto a wider window.
+enum AspectMode {
+    ASPECT_FIT = 0,     // 4:3 centred, pillarboxed (original)
+    ASPECT_STRETCH = 1, // stretched to fill the whole screen
+};
+void setAspectMode(int mode);
+int aspectMode();
+
+// Bicubic magnification instead of the hardware's bilinear (Special features).
+void setHQFilter(bool on);
+bool hqFilter();
+
 // Rectangle of the window used by the 800x600 game screen (letterboxed).
 void screenRect(float &x, float &y, float &w, float &h);
 float pixelScale(); // physical pixels per virtual pixel

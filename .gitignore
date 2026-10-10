@@ -1,6 +1,8 @@
 # Game content (never redistributed: generated from your own copy of the game)
 extracted/
 extracted_lang/
+extracted_r18/
+userdata/
 extracted_list.txt
 decompiled/
 lang/
@@ -14,3 +16,11 @@ build_pc/
 *.elf
 *.nacp
 *.map
+
+# Python bytecode
+__pycache__/
+build_nsp/
+*.nsp
+
+# Downloaded by tools/assets.py
+icon.jpg
