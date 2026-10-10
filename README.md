@@ -74,6 +74,15 @@ videos, and the build running under the Eden emulator. Written but not yet fully
 loading, rollback, text history, the Options / Language / Extras screens, NVL mode, written notes,
 two-character dialogue, and the credits.
 
+## License
+
+The original code and tools of this port are available under the [MIT License](LICENSE).
+Copyright (c) 2026 Axolat000.
+
+This license does not cover Katawa Shoujo's original scripts, artwork, music, videos,
+fonts, or other game assets. Those materials remain subject to their respective licenses.
+Third-party libraries and code retain their own licenses and copyright notices.
+
 ## Credits
 
 *Katawa Shoujo* © Four Leaf Studios. Libraries: SDL2, stb_vorbis (public domain), pl_mpeg (MIT).
